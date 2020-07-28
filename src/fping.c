@@ -499,6 +499,7 @@ int main(int argc, char** argv)
         { "ttl", 'H', OPTPARSE_REQUIRED },
         { "interval", 'i', OPTPARSE_REQUIRED },
         { "iface", 'I', OPTPARSE_REQUIRED },
+        { "mark", 'k', OPTPARSE_REQUIRED },
         { "loop", 'l', OPTPARSE_NONE },
         { "all", 'm', OPTPARSE_NONE },
         { "dontfrag", 'M', OPTPARSE_NONE },
@@ -525,6 +526,7 @@ int main(int argc, char** argv)
     };
 
     float opt_value_float;
+    int opt_value_int;
     while ((c = optparse_long(&optparse_state, longopts, NULL)) != EOF) {
         switch (c) {
         case '4':
@@ -566,6 +568,31 @@ int main(int argc, char** argv)
 #endif
 #else
             fprintf(stderr, "%s, -M option not supported on this platform\n", prog);
+            exit(1);
+#endif
+            break;
+
+        case 'k':
+#ifdef __linux__
+            if (socket4 >= 0) {
+	      if (!sscanf(optparse_state.optarg, "%i", &opt_value_int))
+		usage(1);
+	      if (opt_value_int < 0) {
+		usage(1);
+	      }
+                if (setsockopt(socket4, SOL_SOCKET, SO_MARK, &opt_value_int, sizeof(opt_value_int))) {
+                    perror("setsockopt SO_MARK");
+                }
+            }
+#ifdef IPV6
+            if (socket6 >= 0) {
+                if (setsockopt(socket6, SOL_SOCKET, SO_MARK, &opt_value_int, sizeof(opt_value_int))) {
+                    perror("setsockopt SO_MARK");
+                }
+            }
+#endif
+#else
+            fprintf(stderr, "%s, -k option not supported on this platform\n", prog);
             exit(1);
 #endif
             break;
@@ -961,6 +988,8 @@ int main(int argc, char** argv)
             fprintf(stderr, "  outage_flag set\n");
         if (netdata_flag)
             fprintf(stderr, "  netdata_flag set\n");
+        if (mark_flag)
+            fprintf(stderr, "  mark_flag set\n");
     }
 #endif /* DEBUG || _DEBUG */
 
@@ -2960,6 +2989,7 @@ void usage(int is_error)
 #ifdef SO_BINDTODEVICE
     fprintf(out, "   -I, --iface=IFACE  bind to a particular interface\n");
 #endif
+    fprintf(out, "   -k, --mark=N       SO_MARK value\n");
     fprintf(out, "   -l, --loop         loop mode: send pings forever\n");
     fprintf(out, "   -m, --all          use all IPs of provided hostnames (e.g. IPv4 and IPv6), use with -A\n");
     fprintf(out, "   -M, --dontfrag     set the Don't Fragment flag\n");
